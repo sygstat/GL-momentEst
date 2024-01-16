@@ -18,7 +18,7 @@ Authors@R:
              role = c("aut", "cre", "ths"),
              email = "jspark@chonnam.ac.kr",
              comment = c(ORCID = "0000-0002-8460-4869"))
-Maintainer: The package maintainer <syg.stat@gmail.com>
+Maintainer: Yonggwan Shin <syg.stat@gmail.com>
 Description: Generalized L-moments estimation, applied to the generalized extreme value distribution
 License: GPL (>= 3)
 Encoding: UTF-8
