@@ -1,0 +1,5 @@
+exportPattern("^[[:alpha:]]+")
+importFrom("lmomco", "lmoms", "pargev", "lmoms.cov", "vec2par", "lmomgev", "lmorph", "are.lmom.valid")
+importFrom("stats", "optim", "rnorm", "runif", "integrate")
+importFrom("methods", "is")
+importFrom("nleqslv", "nleqslv")
