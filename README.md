@@ -27,6 +27,6 @@ glme.gev(streamflow$r1)
 
 ## Citation
 
-...
+Shin, Y., Shin, Y., Park, J. S. (2024). Generalized L-moments estimation, applied to the generalized extreme value distribution. -, -(-), -.
 
 -----
