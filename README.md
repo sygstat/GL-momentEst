@@ -25,8 +25,15 @@ glme.gev(streamflow$r1)
 
 ...
 
+## Authors
+
+- Yonggwan Shin; Ph.D, Research & Development Center, XRAI Inc., Gwangju 61186, Korea, [syg.stat@gmail.com]
+- Yire Shin; Ph.D, Department of Mathematics and Statistics, Chonnam National University, Republic of Korea, [shinyire87@gmail.com]
+- Jeong-Soo Park; Professor, Department of Mathematics and Statistics, Chonnam National University, Republic of Korea, [jspark@jnu.ac.kr]
+
 ## Citation
 
-...
+Shin, Y., Shin, Y., Park, J. S. (2024). Generalized L-moments estimation, applied to the generalized extreme value distribution. 
+
 
 -----
