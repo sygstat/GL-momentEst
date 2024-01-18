@@ -126,9 +126,7 @@ init.glme <-function(xdat, ntry=ntry){
 #' This function estimates the Generalized L-moments of Generalized Extreme Value distribution.
 #' @param xdat A numeric vector of data to be fitted.
 #' @param ntry Number of attempts for parameter estimation. Higher values increase the chance of finding a more accurate estimate by trying different initial conditions.
-#' @param alg Choice of algorithm for estimation. Options include 'pmax' and 'like', each with distinct estimation methodologies.
 #' @param pref Preference function used in estimation. Options 'mso' and 'msa' influence the prioritization in the estimation process.
-#' @param ftol Tolerance threshold for the estimation function's precision. Determines the stopping point of the algorithm based on the change in function value between iterations.
 #' @param eps Small positive value used in the algorithm to avoid numerical issues like division by zero or to initiate steps in iterative processes.
 #'
 #' @details
@@ -154,24 +152,20 @@ init.glme <-function(xdat, ntry=ntry){
 #'  \item glme.conT - A variant of the estimated parameters, adjusted for certain conditions (e.g., boundary constraints on parameters).
 #'  \item glme.bc - Bias-corrected version of the estimated parameters, accounting for potential biases in the estimation process.
 #'  \item lme.conF and lme.conT - Similar to glme.conF and glme.conT, but derived from a different aspect of the algorithm or a different estimation perspective.
-#'  \item algorithm - The algorithm used for the estimation, reflecting the alg input parameter.
 #'  \item pref.func - The preference function used, corresponding to the pref input parameter.
 #'  \item nsample - The sample size of the data set used in the estimation process.
 #'  \item estim.precis - The precision of the estimated parameters, indicating the accuracy of the estimation.
-#'  \item pmax - Additional information related to the 'pmax' algorithm, if used.
 #' }
 #' @author Jeong-Soo Park
 #' @export
-glme.gev= function(xdat, ntry=15, alg='pmax', pref='msa',
-                   ftol=1e-5, eps=0.03 ){
+glme.gev= function(xdat, ntry=15, pref='msa', eps=0.03 ){
 
-  # Two algorithms (alg) are available: 'pmax', 'like'
   # Preference functions (pref) are 'mso' and 'msa'
 
   z=list()
   k =list()
 
-  if(alg=='like') lamb=eps
+  lamb=eps
   if(pref=='mso'){
     p=6; q=9
   }else if(pref=='msa'){
@@ -217,47 +211,28 @@ glme.gev= function(xdat, ntry=15, alg='pmax', pref='msa',
 
       value=list()
 
-      if(alg=='pmax' ){
-
-        value <- try(
-          nleqslv(x=as.vector(init[i,1:3]),fn=glme.sol,
-                  slmgev=slmgev, eps=eps)
-        )
-
-      }else if(alg=='like'){
-
-        value <- try(
-          optim(par=as.vector(init[i,1:3]), fn=glme.like,
-                xdat=xdat, slmgev=slmgev, covinv=covinv,
-                lcovdet=lcovdet, lamb=lamb,
-                pref=pref, p=p, q=q)
-        )
-      }
+      value <- try(
+        optim(par=as.vector(init[i,1:3]), fn=glme.like,
+              xdat=xdat, slmgev=slmgev, covinv=covinv,
+              lcovdet=lcovdet, lamb=lamb,
+              pref=pref, p=p, q=q)
+      )
 
       if(is(value)[1]=="try-error"){
         k[[i]]$fvec <- 10^6
       }else{
         k[[i]] <- value
-        if(alg=='pmax' ){
-          k[[i]]$root = value$x
-        }else if(alg=='like'){
-          k[[i]]$root = value$par
-          k[[i]]$fvec = value$value
-        }
+        k[[i]]$root = value$par
+        k[[i]]$fvec = value$value
       }
 
       precis[i]= mean( abs(k[[i]]$fvec) )
 
-      if(alg=='pmax' ){
-        if( abs(value$termcd) > 2 ) precis[i]=1000
-      }else{
-        if( value$convergence != 0) precis[i]=10^6
-      }
+      if( value$convergence != 0) precis[i]=10^6
 
       precis[is.na(precis[i])]=10^6
 
-      fgtol=ftol
-      if(alg=='like') fgtol= 10^6
+      fgtol=10^6
 
       if(precis[i] < fgtol){
 
@@ -297,30 +272,21 @@ glme.gev= function(xdat, ntry=15, alg='pmax', pref='msa',
     #    z$sol = sol
   }
 
-  if(alg=='pmax'){
-    selc_num = which.max( pk.ms )
-  }
 
-  if(alg=='like'){
-    selc_num = which.min( abs(precis) )    #precis=k[[i]]$fvec
-  }
+  selc_num = which.min( abs(precis) )    #precis=k[[i]]$fvec
 
   x  <- k[[selc_num]]
 
-  if(alg=='pmax' ) z$estim.precis <- precis[selc_num]
-  if(alg=='like') z$nllh.pref = k[[selc_num]]$fvec
+  z$nllh.pref = k[[selc_num]]$fvec
 
   glme <- x$root
-  z$pmax = pk.ms[selc_num]
 
   z$glme.conF = glme
   z$glme.conT = glme
   z$glme.bc = glme
 
   if(glme[3] < 0){
-    #beta1 = -0.64766
     beta1 = -0.50766
-    #beta1 = -0.40766
     z$glme.bc[3] = glme[3] - beta1*glme[3]/sqrt(nsample)
     if( abs(z$glme.bc[3]) > 0.5 ){
       z$glme.bc[3] = sign(z$glme.bc[3])*0.499999
@@ -342,14 +308,8 @@ glme.gev= function(xdat, ntry=15, alg='pmax', pref='msa',
     z$lme.conT= pargev.kfix(lmom_init, kfix=lmom_est$para[3])$para
   }
 
-  z$algorithm = alg
   z$pref.func = pref
-
-  if( alg=='pmax' ) {
-    z$eps.pmax= eps
-  }else if(alg=='like'){
-    z$weight.like= lamb
-  }
+  z$weight.like= lamb
   z$nsample = nsample
 
   return(z)

@@ -4,18 +4,14 @@
 \alias{glme.gev}
 \title{Generalized L-moments estimation for generalized extreme value distribution}
 \usage{
-glme.gev(xdat, ntry = 15, alg = "pmax", pref = "msa", ftol = 1e-05, eps = 0.03)
+glme.gev(xdat, ntry = 15, pref = "msa", eps = 0.03)
 }
 \arguments{
 \item{xdat}{A numeric vector of data to be fitted.}
 
 \item{ntry}{Number of attempts for parameter estimation. Higher values increase the chance of finding a more accurate estimate by trying different initial conditions.}
 
-\item{alg}{Choice of algorithm for estimation. Options include 'pmax' and 'like', each with distinct estimation methodologies.}
-
 \item{pref}{Preference function used in estimation. Options 'mso' and 'msa' influence the prioritization in the estimation process.}
-
-\item{ftol}{Tolerance threshold for the estimation function's precision. Determines the stopping point of the algorithm based on the change in function value between iterations.}
 
 \item{eps}{Small positive value used in the algorithm to avoid numerical issues like division by zero or to initiate steps in iterative processes.}
 }
@@ -27,11 +23,9 @@ The glme.gev function returns a list containing the following elements:
  \item glme.conT - A variant of the estimated parameters, adjusted for certain conditions (e.g., boundary constraints on parameters).
  \item glme.bc - Bias-corrected version of the estimated parameters, accounting for potential biases in the estimation process.
  \item lme.conF and lme.conT - Similar to glme.conF and glme.conT, but derived from a different aspect of the algorithm or a different estimation perspective.
- \item algorithm - The algorithm used for the estimation, reflecting the alg input parameter.
  \item pref.func - The preference function used, corresponding to the pref input parameter.
  \item nsample - The sample size of the data set used in the estimation process.
  \item estim.precis - The precision of the estimated parameters, indicating the accuracy of the estimation.
- \item pmax - Additional information related to the 'pmax' algorithm, if used.
 }
 }
 \description{
