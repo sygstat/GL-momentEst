@@ -19,6 +19,9 @@ remotes::install_github("sygstat/GL-momentEst")
 library(GLmomentEst)
 data("streamflow")
 glme.gev(streamflow$r1)
+
+data("PhliuAgromet")
+glme.gev(glme.gev(PhliuAgromet$prec))
 ```
 
 ## Learn more
