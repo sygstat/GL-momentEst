@@ -57,12 +57,82 @@ glme.sol <- function(para, slmgev=slmgev, eps=eps) {
   return(zz)
 }
 
+
+new_pf_norm =function(para=NULL, mu=NULL, std=NULL){
+
+  Brone = 1 + dnorm(para[3], mean= mu, sd=std) #*2
+
+  return(Brone)
+}
+
+pk.beta.stnary = function(para=NULL, lme.center=NULL,  p=NULL){
+
+  pk.one = 1e-10
+  ulim= 0.3
+  aa= max(-1.0, lme.center[3]-ulim)
+  bb= min(0.3, lme.center[3]+ulim)
+  al=min(aa,bb)
+  bl=max(aa,bb)
+
+  if(lme.center[3] <= 0) {
+
+    c1=10
+    c2=5
+
+    qlim= min( 0.0+abs(lme.center[3])*c1, c2 )
+  }else{ qlim =0.0 }
+
+  #  qlim=10
+
+  p=p; q=p+qlim
+
+  Bef <- function(x) { ((-al+x)^(p-1)) * ((bl-x)^(q-1)) }
+  Be  <- integrate(Bef, lower=al, upper=bl)[1]$value
+
+  if(lme.center[3] <= 0.1){
+    if( (para[3] > al) & (para[3] < bl) ) {
+      pk.one <- ((-al+para[3])^(p-1))*((bl-para[3])^(q-1))/ Be
+    }
+  }
+  return(pk.one)
+}
+
+
+#' Calculate the likelihood for Generalized L-moments estimation of GEV distribution
+#'
+#' @description
+#' This function calculates the likelihood (or more precisely, a penalized negative log-likelihood)
+#' for the Generalized L-moments estimation of the Generalized Extreme Value (GEV) distribution.
+#'
+#' @param par A vector of GEV parameters (location, scale, shape).
+#' @param xdat A numeric vector of data.
+#' @param slmgev Sample L-moments of the data.
+#' @param covinv Inverse of the covariance matrix of the sample L-moments.
+#' @param lcovdet Log determinant of the covariance matrix.
+#' @param mu Mean for the normal penalization (used when pen='norm').
+#' @param std Standard deviation for the normal penalization (used when pen='norm').
+#' @param lme L-moment estimates of the parameters.
+#' @param pen Penalization method ('norm' or 'beta').
+#'
+#' @details
+#' The function performs the following steps:
+#' 1. Checks if the parameters are within valid ranges.
+#' 2. Calculates the expected L-moments based on the current parameters.
+#' 3. Computes the difference between expected and sample L-moments.
+#' 4. Calculates the generalized L-moments distance.
+#' 5. Applies a penalization term based on the specified method ('norm' or 'beta').
+#' 6. Returns the sum of the L-moments distance and the penalization term.
+#'
+#' @return A numeric value representing the penalized negative log-likelihood.
+#' A lower value indicates a better fit.
+#'
+#' @author [Jeong-Soo Park]
+#' @export
 glme.like = function(par=par, xdat=xdat, slmgev=slmgev, covinv=covinv,
-                     lcovdet=lcovdet, lamb=lamb,
-                     pref=pref,p=p,q=q){
+                     lcovdet=lcovdet, mu=mu, std=std, lme=lme, pen=pen){
 
   if( par[2] <= 0) return(10^8)
-  if( abs(par[3]) > 0.5) return(10^8)
+  if( abs(par[3]) > 1) return(10^8)
 
   nsample=length(xdat)
 
@@ -78,8 +148,7 @@ glme.like = function(par=par, xdat=xdat, slmgev=slmgev, covinv=covinv,
   # cov=lmoms.cov(xdat, nmom=3)
 
   zvec=rep(NA,3)
-  zvec= emom$lambdas[1:3]-slmgev$lambdas[1:3]
-  #  zvec[3] =emom$ratios[3]-slmgev$ratios[3]
+  zvec= emom$lambdas[1:3] - slmgev$lambdas[1:3]
 
   if( any(is.na(zvec)) ) return(10^8)
 
@@ -87,13 +156,44 @@ glme.like = function(par=par, xdat=xdat, slmgev=slmgev, covinv=covinv,
 
   prob.norm =  z/2   + (3/2)*log( (2*pi) ) + lcovdet
 
-  pk_beta = - log( MS_pk(par, p=p,q=q)$pk.ms )
+  if(pen=='norm'){
 
-  zz= prob.norm  + pk_beta* lamb
+    pk_beta = -log( new_pf_norm(para=par, mu= -0.55, std= 0.15) )
+
+  }else if(pen=='beta'){
+
+    pk_beta = -log( pk.beta.stnary(para= par, lme.center=lme, p=6) )
+  }
+
+  zz= prob.norm  + pk_beta
 
   return(zz)
 }
 
+#' Initialize parameters for Generalized L-moments estimation of GEV distribution
+#'
+#' @description
+#' This function initializes parameters for the Generalized L-moments estimation
+#' of the Generalized Extreme Value (GEV) distribution.
+#'
+#' @param xdat A numeric vector of data to be fitted.
+#' @param ntry Number of initial parameter sets to generate.
+#'
+#' @details
+#' The function generates `ntry` sets of initial parameters for the GEV distribution.
+#' It uses L-moment estimates as a starting point and then generates additional
+#' sets of parameters using random perturbations. This approach increases the
+#' likelihood of finding a global optimum in the subsequent optimization process.
+#'
+#' The function ensures that:
+#' 1. The scale parameter (sigma) is always positive.
+#' 2. The shape parameter (xi) is constrained between -0.7 and 0.7.
+#'
+#' @return A matrix with `ntry` rows and 3 columns, where each row represents
+#' a set of initial parameters (location, scale, shape) for the GEV distribution.
+#'
+#' @author [Jeong-Soo Park]
+#' @export
 init.glme <-function(xdat, ntry=ntry){
 
   init <-matrix(0, nrow=ntry, ncol=3)
@@ -108,114 +208,108 @@ init.glme <-function(xdat, ntry=ntry){
 
   init[2:ntry,1] <- init[1,1]+rnorm(n=(ntry-1),mean=0, sd = sd1)
   init[2:ntry,2] <- runif(n=(ntry-1), min= init[1,2]*0.5, max= sd2)
-  init[2:ntry,3] <- runif(n=(ntry-1), min= -0.5, max=0.5)
+  init[2:ntry,3] <- runif(n=(ntry-1), min= -.7, max=.5)
 
   for (i in 1:ntry){
     if(init[i,2] <= 0) init[i,2] = 1.0
-    if(abs(init[i,3]) >= 0.5 ) init[i,3]= 0.48*sign(init[i,3])
+    if(abs(init[i,3]) >= 0.7 ) init[i,3]= 0.69*sign(init[i,3])
   }
 
   return(init)
 }
 
 
-# GEV 모델의 매개변수를 추정하는 함수를 정의합니다.
 #' Generalized L-moments estimation for generalized extreme value distribution
 #'
 #' @description
-#' This function estimates the Generalized L-moments of Generalized Extreme Value distribution.
+#' This function estimates the Generalized L-moments of Generalized Extreme Value distribution using an updated algorithm.
+#'
 #' @param xdat A numeric vector of data to be fitted.
 #' @param ntry Number of attempts for parameter estimation. Higher values increase the chance of finding a more accurate estimate by trying different initial conditions.
-#' @param pref Preference function used in estimation. Options 'mso' and 'msa' influence the prioritization in the estimation process.
-#' @param eps Small positive value used in the algorithm to avoid numerical issues like division by zero or to initiate steps in iterative processes.
+#' @param pen Penalization method used in estimation. Options are 'beta' and 'norm'.
 #'
 #' @details
-#' The equations for the L-moments for LME of the GEVD are
-#' \deqn{ \underline{\bf \lambda} - \underline{\bf l} = \underline{\bf 0},}
-#' where \eqn{ \underline{\bf \lambda} =(\lambda_1,\; \lambda_2,\; \lambda_3)^t } and \eqn{\underline{\bf l} =(l_1,\; l_2,\; l_3)^t}.
-#' Next, we define the generalized L-moments distance (GLD) as;
-#' \deqn{(\underline{\bf \lambda} -\underline{\bf l})^t V^{-1} (\underline{\bf \lambda} -\underline{\bf l}),}
-#' where \eqn{V} is the variance-covariance matrix of the sample L-moments up to the third order.
-#' The LME value is obtained by minimizing the following function:
-#' \deqn{f(GLD(\mu,\sigma,\xi)) = \frac{1}{(2 \pi)^{3/2} |V| }exp \{-{1\over2}  (\underline{\bf \lambda} -\underline{\bf l})^t V^{-1} (\underline{\bf \lambda} -\underline{\bf l}) \}.}
-#' This function is a PDF of the three-variate normal random vector.
-#' As sample L-moments typically converge to a multivariate normal distribution as \eqn{n \rightarrow \infty} (Hosking 1990),
-#' this function can be treated as an approximation to the likelihood function of \eqn{\underline{\bf \theta}=(\mu,\sigma,\xi)} given three sample L-moments, \eqn{\tilde L (\underline{\mathbf \theta} | \underline{\mathbf l})}.
-#' Then, the GLME value of \eqn{\underline{\bf \theta}=(\mu,\sigma,\xi)} is obtained by minimizing the following function with respect to \eqn{\underline{\bf \theta}}:
-#' \deqn{-ln ( f(GLD(\underline{\bf \theta})))\; - \alpha_n \; ln ( p(\xi)),}
-#' where \eqn{\alpha_n} denotes a weight for the prior \eqn{p(\xi)} compared to the approximated likelihood of \eqn{GLD(\underline{\bf \theta})}.
+#' The function uses an optimization approach to estimate the parameters of the Generalized Extreme Value distribution.
+#' It implements a penalized likelihood method, where the penalization can be either 'beta' or 'norm'.
+#' The function handles potential issues with covariance matrix calculation by using a bootstrap approach when necessary.
 #'
 #' @return The glme.gev function returns a list containing the following elements:
 #' \itemize{
-#'  \item nsol - Number of solutions found. Indicates how many viable parameter sets were identified during the estimation process.
-#'  \item glme.conF - The estimated parameters of the Generalized Extreme Value distribution using the function's primary method. Represents the core output of the function.
-#'  \item glme.conT - A variant of the estimated parameters, adjusted for certain conditions (e.g., boundary constraints on parameters).
-#'  \item glme.bc - Bias-corrected version of the estimated parameters, accounting for potential biases in the estimation process.
-#'  \item lme.conF and lme.conT - Similar to glme.conF and glme.conT, but derived from a different aspect of the algorithm or a different estimation perspective.
-#'  \item pref.func - The preference function used, corresponding to the pref input parameter.
-#'  \item nsample - The sample size of the data set used in the estimation process.
-#'  \item estim.precis - The precision of the estimated parameters, indicating the accuracy of the estimation.
+#'  \item glme - The estimated parameters of the Generalized Extreme Value distribution.
+#'  \item lme - The L-moment estimates of the parameters.
+#'  \item covinv - The inverse of the covariance matrix of the L-moments.
+#'  \item lcovdet - The log determinant of the covariance matrix.
+#'  \item nllh.pref - The negative log-likelihood of the preferred solution.
+#'  \item pen - The penalization method used ('beta' or 'norm').
 #' }
-#' @author Jeong-Soo Park
+#'
+#' @author [Jeong-Soo Park]
 #' @export
-glme.gev= function(xdat, ntry=15, pref='msa', eps=0.03 ){
+glme.gev= function(xdat, ntry=10, pen='beta'){
 
-  # Preference functions (pref) are 'mso' and 'msa'
+  # pen='beta' or 'norm'
 
   z=list()
   k =list()
 
-  lamb=eps
-  if(pref=='mso'){
-    p=6; q=9
-  }else if(pref=='msa'){
-    p=3; q=4.5
-  }
-
-  # 데이터와 초기 매개변수 설정
+  # initial setting ------
   nsample=length(xdat)
-  init=matrix(0, nrow=ntry, ncol=3)
+  sinit=matrix(0, nrow=ntry, ncol=3)
 
-  init <- init.glme(xdat, ntry=ntry)
+  sinit <- init.glme(xdat, ntry=ntry)
 
   lmom_init = lmoms(xdat)
   lmom_est <- pargev(lmom_init)
 
+  lme = lmom_est$para
+  z$lme =  lmom_est$para
+
   precis=rep(NA, ntry)
   pk.ms=rep(NA, ntry)
   pk.ms.lme=rep(NA, ntry)
-  isol=1
+  isol=0
   sol=list()
   mindist=1000
   dist=rep(1000, ntry)
 
-  covinv= matrix(NA, 3,3)
+  covinv= matrix(NA, 3, 3)
+
   slmgev=lmoms(xdat)
   cov=lmoms.cov(xdat, nmom=3)
+
   covinv=solve(cov)
-  det=det(cov)
-  if(det <= 0){
-    # 비정상성인 공분산의 경우 처리
-    covinv[,]=0
-    for (i in 1:3){
-      covinv[i,i]=1
+  detc = det(cov)
+
+  #--------------------------------------------------
+  if(detc <= 0){
+    # cat("det <0, Bootstrap to calculate cov","\n")
+
+    BB=200          # we need Bootstrap to calculate cov ---
+    sam.lmom= matrix(NA,BB,3)
+
+    for (ib in 1:BB){
+      sam.lmom[ib,1:3]=lmoms(sample(xdat,size=nsample,replace=T), nmom=3)$lambdas
     }
-    lcovdet=0
-  }else{
-    lcovdet=log(det(cov))
+    cov=cov(sam.lmom)
+    covinv=solve(cov)
+    detc=det(cov)
   }
 
-  # nleqslv 또는 optim 함수를 사용하여 매개변수 추정을 시도합니다.
+  lcovdet=log(detc)
+  z$covinv =covinv
+  z$lcovdet =lcovdet
+
+  #-------------------------------------------------------
+  # estimating paras using nleqslv or optim
   tryCatch(
     for(i in 1:ntry){
 
       value=list()
 
       value <- try(
-        optim(par=as.vector(init[i,1:3]), fn=glme.like,
+        optim(par=as.vector(sinit[i,1:3]), fn=glme.like,
               xdat=xdat, slmgev=slmgev, covinv=covinv,
-              lcovdet=lcovdet, lamb=lamb,
-              pref=pref, p=p, q=q)
+              lcovdet=lcovdet, mu=mu, std=std, lme=lme, pen=pen)
       )
 
       if(is(value)[1]=="try-error"){
@@ -226,94 +320,32 @@ glme.gev= function(xdat, ntry=15, pref='msa', eps=0.03 ){
         k[[i]]$fvec = value$value
       }
 
-      precis[i]= mean( abs(k[[i]]$fvec) )
-
-      if( value$convergence != 0) precis[i]=10^6
-
-      precis[is.na(precis[i])]=10^6
-
-      fgtol=10^6
-
-      if(precis[i] < fgtol){
-
-        pk.ms[i]= MS_pk( k[[i]]$root, p=p, q=q )$pk.ms
-
-        if(isol == 1 ) {
-          sol[[isol]] = k[[i]]
-          sol[[isol]]$pk.ms = pk.ms[i]
-        }
-
-        if( isol >= 2 ) {
-          for(isolm1 in 1:(isol-1) ) {
-            dist[isolm1]= sum( abs(k[[i]]$root[1:3] - sol[[isolm1]]$root[1:3]) )
-          }
-          mindist=min(dist)
-
-          if( mindist > 0.001 ) {
-            sol[[isol]] = k[[i]]
-            sol[[isol]]$pk.ms = pk.ms[i]
-          }
-        }
-
-        if( mindist > 0.001 ) isol=isol+1
-
-      }else if(precis[i] >= fgtol) {
-        pk.ms[i] = -100.0
+      if( value$convergence != 0) {precis[i]=10^6
+      }else{
+        isol=isol+1
+        precis[i] = k[[i]]$fvec
       }
 
     } #for
   ) #tryCatch
 
-  nsol=isol-1
-  if(nsol == 0) {
+  if(isol==0) {
     cat("-- No solution was found in nleqslv or optim --","\n")
-  }else{
-    z$nsol= nsol
-    #    z$sol = sol
+    z$glme = z$lme
+    return
   }
 
-
-  selc_num = which.min( abs(precis) )    #precis=k[[i]]$fvec
+  selc_num = which.min( precis )    #precis=k[[i]]$fvec
 
   x  <- k[[selc_num]]
 
   z$nllh.pref = k[[selc_num]]$fvec
-
-  glme <- x$root
-
-  z$glme.conF = glme
-  z$glme.conT = glme
-  z$glme.bc = glme
-
-  if(glme[3] < 0){
-    beta1 = -0.50766
-    z$glme.bc[3] = glme[3] - beta1*glme[3]/sqrt(nsample)
-    if( abs(z$glme.bc[3]) > 0.5 ){
-      z$glme.bc[3] = sign(z$glme.bc[3])*0.499999
-    }
-    glme.bc= pargev.kfix(lmom_init, kfix=z$glme.bc[3])$para
-    z$glme.bc = glme.bc
-  }
-
-  if( abs(glme[3]) > 0.5 ){
-    glme[3] = sign(glme[3])*0.499999
-    z$glme.conT= pargev.kfix(lmom_init, kfix=glme[3])$para
-  }
-
-  z$lme.conF =lmom_est$para
-  z$lme.conT =lmom_est$para
-
-  if(abs(lmom_est$para[3]) > 0.5){
-    lmom_est$para[3] = sign(lmom_est$para[3])*0.499999
-    z$lme.conT= pargev.kfix(lmom_init, kfix=lmom_est$para[3])$para
-  }
-
-  z$pref.func = pref
-  z$weight.like= lamb
-  z$nsample = nsample
+  z$glme = x$root
+  z$pen = pen
 
   return(z)
 }
+
 
 
 

@@ -4,49 +4,34 @@
 \alias{glme.gev}
 \title{Generalized L-moments estimation for generalized extreme value distribution}
 \usage{
-glme.gev(xdat, ntry = 15, pref = "msa", eps = 0.03)
+glme.gev(xdat, ntry = 10, pen = "beta")
 }
 \arguments{
 \item{xdat}{A numeric vector of data to be fitted.}
 
 \item{ntry}{Number of attempts for parameter estimation. Higher values increase the chance of finding a more accurate estimate by trying different initial conditions.}
 
-\item{pref}{Preference function used in estimation. Options 'mso' and 'msa' influence the prioritization in the estimation process.}
-
-\item{eps}{Small positive value used in the algorithm to avoid numerical issues like division by zero or to initiate steps in iterative processes.}
+\item{pen}{Penalization method used in estimation. Options are 'beta' and 'norm'.}
 }
 \value{
 The glme.gev function returns a list containing the following elements:
 \itemize{
- \item nsol - Number of solutions found. Indicates how many viable parameter sets were identified during the estimation process.
- \item glme.conF - The estimated parameters of the Generalized Extreme Value distribution using the function's primary method. Represents the core output of the function.
- \item glme.conT - A variant of the estimated parameters, adjusted for certain conditions (e.g., boundary constraints on parameters).
- \item glme.bc - Bias-corrected version of the estimated parameters, accounting for potential biases in the estimation process.
- \item lme.conF and lme.conT - Similar to glme.conF and glme.conT, but derived from a different aspect of the algorithm or a different estimation perspective.
- \item pref.func - The preference function used, corresponding to the pref input parameter.
- \item nsample - The sample size of the data set used in the estimation process.
- \item estim.precis - The precision of the estimated parameters, indicating the accuracy of the estimation.
+ \item glme - The estimated parameters of the Generalized Extreme Value distribution.
+ \item lme - The L-moment estimates of the parameters.
+ \item covinv - The inverse of the covariance matrix of the L-moments.
+ \item lcovdet - The log determinant of the covariance matrix.
+ \item nllh.pref - The negative log-likelihood of the preferred solution.
+ \item pen - The penalization method used ('beta' or 'norm').
 }
 }
 \description{
-This function estimates the Generalized L-moments of Generalized Extreme Value distribution.
+This function estimates the Generalized L-moments of Generalized Extreme Value distribution using an updated algorithm.
 }
 \details{
-The equations for the L-moments for LME of the GEVD are
-\deqn{ \underline{\bf \lambda} - \underline{\bf l} = \underline{\bf 0},}
-where \eqn{ \underline{\bf \lambda} =(\lambda_1,\; \lambda_2,\; \lambda_3)^t } and \eqn{\underline{\bf l} =(l_1,\; l_2,\; l_3)^t}.
-Next, we define the generalized L-moments distance (GLD) as;
-\deqn{(\underline{\bf \lambda} -\underline{\bf l})^t V^{-1} (\underline{\bf \lambda} -\underline{\bf l}),}
-where \eqn{V} is the variance-covariance matrix of the sample L-moments up to the third order.
-The LME value is obtained by minimizing the following function:
-\deqn{f(GLD(\mu,\sigma,\xi)) = \frac{1}{(2 \pi)^{3/2} |V| }exp \{-{1\over2}  (\underline{\bf \lambda} -\underline{\bf l})^t V^{-1} (\underline{\bf \lambda} -\underline{\bf l}) \}.}
-This function is a PDF of the three-variate normal random vector.
-As sample L-moments typically converge to a multivariate normal distribution as \eqn{n \rightarrow \infty} (Hosking 1990),
-this function can be treated as an approximation to the likelihood function of \eqn{\underline{\bf \theta}=(\mu,\sigma,\xi)} given three sample L-moments, \eqn{\tilde L (\underline{\mathbf \theta} | \underline{\mathbf l})}.
-Then, the GLME value of \eqn{\underline{\bf \theta}=(\mu,\sigma,\xi)} is obtained by minimizing the following function with respect to \eqn{\underline{\bf \theta}}:
-\deqn{-ln ( f(GLD(\underline{\bf \theta})))\; - \alpha_n \; ln ( p(\xi)),}
-where \eqn{\alpha_n} denotes a weight for the prior \eqn{p(\xi)} compared to the approximated likelihood of \eqn{GLD(\underline{\bf \theta})}.
+The function uses an optimization approach to estimate the parameters of the Generalized Extreme Value distribution.
+It implements a penalized likelihood method, where the penalization can be either 'beta' or 'norm'.
+The function handles potential issues with covariance matrix calculation by using a bootstrap approach when necessary.
 }
 \author{
-Jeong-Soo Park
+[Jeong-Soo Park]
 }
